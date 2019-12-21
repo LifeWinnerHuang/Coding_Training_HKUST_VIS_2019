@@ -58,10 +58,27 @@ The the top 10 tracks in the global throughout year 2017 with their total stream
 
 
 ### Task 2
+List the top 10 artists (or groups) those has the most stream counts for all their tracks combined.
+![Level4_2](figures/Level4_2.png)
+
 
 ### Task 3
+List the top 10 tracks in December, 2017 for each continent (North America, Europe, Asia, South America, Oceania).
+![Level4_3](figures/Level4_3.png)
+
 
 ### Task 4
+Task 4 is the hardes one, with more complicated data processing. The result is shown as follows.
+![Level4_4](figures/Level4_4.png)
+The figure is plotted using matplotlib. 
+And here we have a simple explanation of this multi line chart. 
+
+### A Simple Data Story
+
+Here from the figure we can find that in March the streams number is the peek and then decrease month by month. 
+For the ranking we can see that it peeks for several month then falls monthly. 
+After March, although the streams drops a little, but the ranking is still 1. 
+After the streams drops further, the ranking starts to fall down. 
 
 
 
