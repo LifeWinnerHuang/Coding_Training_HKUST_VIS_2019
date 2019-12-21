@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<style>
+    .tooltip {
+        background-color: rgb(219, 226, 227);
+        padding: 10px;
+    }
+</style>
+
+<body>   	
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script>
+
+    // Initialize the position of the canvas and border size. 
+    var margin = {top: 30, right: 30, bottom: 30, left: 70},
+        width = 960 - margin.left - margin.right,
+        height = 960 - margin.top - margin.bottom;
+    
+    var padding = 0.1;
+    var yearNumber = 21;
+    var monthNumber = 12;
+    // Indicator for min and max temperature 
+    // -1 -> min temperature and 1 -> max temperature 
+    var minMaxIndicator = -1;  
+
+    var rectWidth = 20;
+    var rectHeight = 20;
+
+    var years = d3.range(1997, 2018);
+    var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    var x = d3.scaleBand()
+        .range([0, 660])
+        .paddingInner(padding);
+
+    var y = d3.scaleBand()
+        .range([0, 320])
+        .paddingInner(padding);
+            
+    var svg = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    x.domain(years);
+    y.domain(months);
+    // x axis
+    svg.append("g")
+        .call(d3.axisTop(x));
+    // y axis
+    svg.append("g")
+        .call(d3.axisLeft(y));
+
+    var tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'tooltip')
+        .style('position', 'absolute')
+        .style('z-index', '10')
+        .style('visibility', 'hidden')
+        .text('a simple tooltip')
+
+    // Load and process the data from local file. 
+    d3.csv("https://raw.githubusercontent.com/HKUST-VISLab/coding-challenge/master/temperature_daily.csv", function(error, data) {
+        if (error) throw error;
+        
+        data.forEach(function(row) {
+            row.min_temperature = parseFloat(row.min_temperature);
+            row.max_temperature = parseFloat(row.max_temperature);
+        });
+        // console.log(data);
+
+        // Construct the empty matrix for filling in data. 
+        var matrixData = []
+        for (let year = 0; year < 21; year++) {
+            for (let month = 0; month < 12; month++) {
+                let cell = {}
+                cell.year = year + 1997;
+                cell.month = month + 1;
+                cell.max = -200;
+                cell.min = 200;
+                cell.data = [];
+                matrixData.push(cell);
+            }
+        }
+        // Computing the max and min temperature and fill in the data. 
+        for (let i = 0; i < data.length; i++) {
+            let date = data[i].date;
+            let year = parseInt(date.split('-')[0]);
+            let month = parseInt(date.split('-')[1]);
+
+            // Compare and update the max and min temperature of each month. 
+            cellIndex = (year - 1997) * 12 + (month - 1)
+            if (matrixData[cellIndex].max < data[i].max_temperature) {
+                matrixData[cellIndex].max = data[i].max_temperature;
+            }
+            if (matrixData[cellIndex].min > data[i].min_temperature) {
+                matrixData[cellIndex].min = data[i].min_temperature;
+            }
+            // Store raw data in the cell for debugging.
+            matrixData[cellIndex].data.push(data[i]);
+        }
+        console.log(matrixData);
+
+        // Compute global max and min temperature.
+        var maxValue = -200;
+        var minValue = 200;
+        for (let i = 0; i < matrixData.length; i++) {
+            if (maxValue < matrixData[i].max) {
+                maxValue = matrixData[i].max;
+            }
+            if (minValue > matrixData[i].min) {
+                minValue = matrixData[i].min;
+            }
+        }
+
+        // Colors for temperature. 
+        var blueColor = d3.rgb('#2c7bb6')
+        var yellowColor = d3.rgb('#ffff8c');
+        var redColor = d3.rgb('#d7191c');
+
+        var colorCold = d3.interpolate(blueColor, yellowColor);
+        var colorWarm = d3.interpolate(yellowColor, redColor);
+        var linearColorCold = d3.scaleLinear()
+                    .domain([0, 20])
+                    .range([0, 1])
+        var linearColorWarm = d3.scaleLinear()
+                    .domain([20, 40])
+                    .range([0, 1])
+
+        // convert temperature into color. 
+        function computeColor(temperature) {
+            if (temperature == 200 || temperature == -200) {
+                return '#ffffff';
+            }
+            if (temperature < 20) {
+                return colorCold(linearColorCold(temperature));
+            } else {
+                return colorWarm(linearColorWarm(temperature));
+            }
+        }
+
+        var rectGroup = svg.append('g')
+            .attr('class', 'rect_group')
+        // Drawring the cells  
+        var rect = rectGroup.selectAll('rect')
+            .data(matrixData)
+            .enter()
+            .append('rect')
+            .attr('width', rectWidth)
+            .attr('height', rectHeight)
+            // Position of the rect
+            .attr('x', function(d) {
+                return x(d.year) + 4;
+            })
+            .attr('y', function(d) {
+                var months = ['January', 'February', 'March', 'April', 'May', 
+                    'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                function monthNumToName(monthnum) {
+                    return months[monthnum - 1] || '';
+                }
+                return y(monthNumToName(d.month)) + 4;
+            })
+            .style('fill', function(d) {
+                return computeColor(d.min);
+            });
+
+            // Changing mode of min and max on click. 
+            rect.on('click', function(d) {
+                minMaxIndicator = minMaxIndicator * (-1);
+                // If displaying min temperature
+                if (minMaxIndicator == -1) {
+                    rect.style('fill', function(d) {
+                        return computeColor(d.min);
+                    });
+                } else {
+                    rect.style('fill', function(d) {
+                        return computeColor(d.max)
+                    });
+                }
+            });
+            
+            // Tooltips for mouse events
+            rect.on('mousemove', function(d) {
+                tooltip.style('visibility', 'visible')
+                tooltip.transition()
+                    .duration(20)
+                    .style('opacity', 0.8);
+
+                var tooltipText = 'Month: ' + d.year + '-'
+                if(d.month < 10) {
+                    tooltipText = tooltipText + '0' + d.month
+                } else {
+                    tooltipText = tooltipText + d.month
+                }
+                tooltipText = tooltipText + '<br /> Max Temperature: ' + d.max + '<br /> Min Temperature: ' + d.min;
+                tooltip.html(tooltipText)
+                    .style('left', (d3.event.pageX) + 20 + 'px')
+                    .style('top', (d3.event.pageY) - 10 + 'px');
+            })
+            .on('mouseout', function(d) {
+                tooltip.transition()
+                    .duration(20)
+                    .style('opacity', 0.0)
+                    .on('end', function () {
+                        tooltip.html('')
+                            .style('left', '900px')
+                            .style('top', '0px')
+                    })
+            });
+
+            // Construct the gradient legend. 
+            var gradientLegendGroup = svg.append('g')
+                .attr('class', 'gradient_legend_group')
+
+            var gradientLegend = gradientLegendGroup.append('defs')
+                .append('linearGradient')
+                .attr('id', 'gradient_legend')
+                .attr('x1', '0%') // bottom
+                .attr('y1', '100%')
+                .attr('x2', '0%') // to top
+                .attr('y2', '0%')
+                .attr('spreadMethod', 'pad')
+
+            gradientLegend.selectAll("stop")
+                .data([
+                    {offset: "0%", color: blueColor},
+                    {offset: "50%", color: yellowColor},
+                    {offset: "100%", color: redColor}
+                ])
+                .enter().append("stop")
+                .attr("offset", function(d) { return d.offset; })
+                .attr("stop-color", function(d) { return d.color; });
+
+            gradientLegendGroup.append('rect')
+                .attr('width', 20)
+                .attr('height', 180)
+                .style('fill', 'url(#gradient_legend)')
+                .attr('transform', 'translate(680, 0)')
+
+            var gradientLegendScale = d3.scaleLinear()
+                .domain([0, 40])
+                .range([180, 0])
+
+            var gradientLegendAxis = d3.axisRight()
+                .scale(gradientLegendScale)
+                .ticks(6)
+
+            gradientLegendGroup.append('g')
+                .attr('class', 'gradient legend axis')
+                .attr('transform', 'translate(700, 0)')
+                .call(gradientLegendAxis)
+                .append('text')
+                .attr('y', 190)
+                .attr('x', -20)
+                .attr('dy', '.71em')
+                .style('text-anchor', 'start')
+                .text('Color Legend')
+                .style("fill", "Black")
+    });
+
+</script>
+</body>
